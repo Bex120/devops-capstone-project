@@ -1,7 +1,47 @@
-# DevOps Capstone Template
+# Customer Accounts Microservice
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.9](https://img.shields.io/badge/Python-3.9-green.svg)](https://shields.io/)
+[![CI Build](https://github.com/Bex120/devops-capstone-project/actions/workflows/ci-build.yaml/badge.svg)](https://github.com/Bex120/devops-capstone-project/actions/workflows/ci-build.yaml)
+
+This is the completed Customer Accounts microservice for the IBM DevOps
+Capstone Project. It exposes a REST API for creating, listing, reading,
+updating, and deleting customer accounts. The project includes automated
+tests, continuous integration, security headers and CORS, a non-root Docker
+image, Kubernetes manifests, and a Tekton continuous-deployment pipeline.
+
+## REST API
+
+| Method | Endpoint | Purpose | Success |
+|---|---|---|---|
+| `POST` | `/accounts` | Create an account | `201 Created` |
+| `GET` | `/accounts` | List all accounts | `200 OK` |
+| `GET` | `/accounts/{id}` | Read an account | `200 OK` |
+| `PUT` | `/accounts/{id}` | Update an account | `200 OK` |
+| `DELETE` | `/accounts/{id}` | Delete an account | `204 No Content` |
+| `GET` | `/health` | Health check | `200 OK` |
+
+## Test and run
+
+```bash
+source bin/setup.sh
+nosetests -v --with-spec --spec-color --with-coverage
+honcho start
+```
+
+The service listens on port `8000` when run with the provided `Procfile`, and
+on port `8080` in its container.
+
+## Build and deploy
+
+```bash
+docker build -t accounts:1 .
+docker run --rm -p 8080:8080 accounts:1
+oc apply -f deploy/
+```
+
+The Tekton definitions are in `tekton/`. The pipeline performs cleanup,
+clone, lint, test, image build, and OpenShift deployment stages.
 
 This repository contains the starter code for the project in [**IBM-CD0285EN-SkillsNetwork DevOps Capstone Project**](https://www.coursera.org/learn/devops-capstone-project?specialization=devops-and-software-engineering) which is part of the [**IBM DevOps and Software Engineering Professional Certificate**](https://www.coursera.org/professional-certificates/devops-and-software-engineering)
 
