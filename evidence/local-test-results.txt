@@ -1,0 +1,11 @@
+Local verification (SQLite, Python 3.12 compatibility environment)
+
+Command:
+  DATABASE_URI=sqlite:///test.db python -m unittest discover -v
+
+Result:
+  Ran 27 tests in 0.211s
+  OK
+
+The course's official CI command remains in .github/workflows/ci-build.yaml
+and runs against PostgreSQL on Python 3.9.
