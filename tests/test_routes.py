@@ -11,7 +11,7 @@ from unittest import TestCase
 from tests.factories import AccountFactory
 from service.common import status  # HTTP Status Codes
 from service.models import db, Account, init_db
-from service.routes import app
+from service import app, talisman
 
 DATABASE_URI = os.getenv(
     "DATABASE_URI", "postgresql://postgres:postgres@localhost:5432/postgres"
@@ -33,6 +33,7 @@ class TestAccountService(TestCase):
         app.config["DEBUG"] = False
         app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URI
         app.logger.setLevel(logging.CRITICAL)
+        talisman.force_https = False
         init_db(app)
 
     @classmethod
@@ -123,4 +124,67 @@ class TestAccountService(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
 
-    # ADD YOUR TEST CASES HERE ...
+    def test_get_account_list(self):
+        """It should Get a list of Accounts"""
+        self._create_accounts(5)
+        response = self.client.get(BASE_URL)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.get_json()), 5)
+
+    def test_get_account(self):
+        """It should Read a single Account"""
+        account = self._create_accounts(1)[0]
+        response = self.client.get(f"{BASE_URL}/{account.id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.get_json()["name"], account.name)
+
+    def test_account_not_found(self):
+        """It should return 404 for an unknown Account"""
+        response = self.client.get(f"{BASE_URL}/0")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_update_account(self):
+        """It should Update an existing Account"""
+        account = self._create_accounts(1)[0]
+        payload = account.serialize()
+        payload["name"] = "Updated Customer"
+        response = self.client.put(f"{BASE_URL}/{account.id}", json=payload)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.get_json()["name"], "Updated Customer")
+
+    def test_update_account_not_found(self):
+        """It should return 404 when updating an unknown Account"""
+        account = AccountFactory()
+        response = self.client.put(f"{BASE_URL}/0", json=account.serialize())
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_delete_account(self):
+        """It should Delete an Account"""
+        account = self._create_accounts(1)[0]
+        response = self.client.delete(f"{BASE_URL}/{account.id}")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertIsNone(Account.find(account.id))
+
+    def test_delete_account_not_found(self):
+        """It should still return 204 when deleting an unknown Account"""
+        response = self.client.delete(f"{BASE_URL}/0")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_method_not_allowed(self):
+        """It should not allow an unsupported method"""
+        response = self.client.delete(BASE_URL)
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_security_headers(self):
+        """It should return Talisman security headers"""
+        response = self.client.get("/", environ_overrides={"wsgi.url_scheme": "https"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.headers.get("X-Frame-Options"), "SAMEORIGIN")
+        self.assertEqual(response.headers.get("X-Content-Type-Options"), "nosniff")
+        self.assertIsNotNone(response.headers.get("Content-Security-Policy"))
+        self.assertEqual(response.headers.get("Referrer-Policy"), "strict-origin-when-cross-origin")
+
+    def test_cors_security(self):
+        """It should return a CORS header"""
+        response = self.client.get("/", environ_overrides={"wsgi.url_scheme": "https"})
+        self.assertEqual(response.headers.get("Access-Control-Allow-Origin"), "*")
